@@ -5,6 +5,10 @@ import { Repository } from "typeorm";
 import { CreateMessageDto } from "src/auth/dto/create-message.dto";
 import { User } from "src/users/entities/user.entity";
 
+export const getPrivateRoomId = (userId1: string, userId2: string): string =>{
+    return [userId1, userId2].sort().join('--')
+}
+
 @Injectable()
 export class MessageService {
     constructor(@InjectRepository(Message) private readonly messageRepository: Repository<Message>){}
@@ -35,6 +39,15 @@ export class MessageService {
             order: {createdAt:'DESC'},
             take: limit,
             relations: ['user']
+        })
+    }
+
+    async createPrivateMessage(senderId: string, recipientId: string, content: string){
+        const roomId = getPrivateRoomId(senderId, recipientId)
+        const newMessage = this.messageRepository.create({
+            content,
+            roomId,
+            userId: senderId
         })
     }
 }

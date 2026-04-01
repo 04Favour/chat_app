@@ -1,3 +1,4 @@
+import { Room } from "src/rooms/entity/room.entity";
 import { User } from "src/users/entities/user.entity";
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 

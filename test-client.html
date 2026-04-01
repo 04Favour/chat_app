@@ -188,48 +188,23 @@
             border-radius: 10px;
             padding: 20px;
             margin-bottom: 20px;
-            background: #f9f9f9;
-            display: flex; /* Added flex to container */
-            flex-direction: column;
-        }
-
-        /* NEW: Wrapper for layout alignment */
-        .message-wrapper {
+            background: #f5f5f5;
             display: flex;
             flex-direction: column;
-            margin: 8px 0;
-            width: 100%;
         }
 
-        .message {
-            padding: 12px 15px;
-            border-radius: 15px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        /* ==================== MESSAGE BUBBLES ==================== */
+        
+        .message-wrapper {
+            display: flex;
+            margin-bottom: 15px;
             animation: slideIn 0.3s ease;
-            max-width: 75%;
-            word-wrap: break-word;
-        }
-
-        /* NEW: Right-aligned messages (Sent by you) */
-        .message.sent {
-            align-self: flex-end;
-            background: #667eea;
-            color: white;
-            border-bottom-right-radius: 2px;
-        }
-
-        /* NEW: Left-aligned messages (Received from others) */
-        .message.received {
-            align-self: flex-start;
-            background: white;
-            color: #333;
-            border-bottom-left-radius: 2px;
         }
 
         @keyframes slideIn {
             from {
                 opacity: 0;
-                transform: translateY(-10px);
+                transform: translateY(10px);
             }
             to {
                 opacity: 1;
@@ -237,38 +212,80 @@
             }
         }
 
-        .message strong {
-            color: #667eea;
+        /* OTHER PEOPLE'S MESSAGES - LEFT SIDE */
+        .message-wrapper.other {
+            justify-content: flex-start;
+        }
+
+        .message-wrapper.other .message {
+            background: white;
+            color: #333;
+            border-radius: 18px 18px 18px 4px;
+            max-width: 70%;
+            padding: 12px 16px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .message-wrapper.other .message-header {
             font-weight: 700;
+            color: #667eea;
+            font-size: 13px;
+            margin-bottom: 4px;
         }
 
-        /* White text for bold names inside blue bubbles */
-        .message.sent strong {
-            color: #e0e6ff;
+        /* YOUR MESSAGES - RIGHT SIDE */
+        .message-wrapper.own {
+            justify-content: flex-end;
         }
 
-        .message small {
-            color: #999;
-            font-size: 12px;
+        .message-wrapper.own .message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 18px 18px 4px 18px;
+            max-width: 70%;
+            padding: 12px 16px;
+            box-shadow: 0 2px 5px rgba(102, 126, 234, 0.3);
+        }
+
+        .message-wrapper.own .message-header {
+            font-weight: 700;
+            font-size: 13px;
+            margin-bottom: 4px;
+            opacity: 0.9;
+        }
+
+        /* MESSAGE CONTENT */
+        .message-content {
+            word-wrap: break-word;
+            line-height: 1.4;
+            font-size: 15px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
             margin-top: 4px;
-            display: block;
-        }
-
-        .message.sent small {
-            color: #cbd5e0;
             text-align: right;
         }
 
+        .message-wrapper.other .message-time {
+            color: #999;
+        }
+
+        .message-wrapper.own .message-time {
+            color: rgba(255,255,255,0.8);
+        }
+
+        /* SYSTEM MESSAGES */
         .system-message {
-            color: #666;
-            font-style: italic;
-            background: #f0f0f0;
             text-align: center;
-            align-self: center; /* Center system logs */
-            max-width: 90%;
-            border-radius: 8px;
+            color: #999;
+            font-size: 13px;
+            font-style: italic;
             margin: 10px 0;
-            padding: 8px 15px;
+            padding: 8px;
+            background: rgba(0,0,0,0.03);
+            border-radius: 12px;
         }
 
         .message-input-container {
@@ -285,11 +302,11 @@
         }
 
         #typing-indicator {
-            color: #999;
+            color: #667eea;
             font-style: italic;
-            font-size: 14px;
+            font-size: 13px;
             min-height: 20px;
-            padding: 5px 0;
+            padding: 5px 15px;
         }
 
         .online-users {
@@ -405,6 +422,20 @@
         let currentRoom = 'general';
         const API_URL = 'http://localhost:3009';
 
+        function getDeviceId() {
+            let deviceId = localStorage.getItem('chat_device_id')
+            if(!deviceId){
+                deviceId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                    const r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8)
+                    return v.toString(16)
+                })
+                localStorage.setItem('chat_device_id', deviceId)
+            }
+            return deviceId
+        }
+
+        const DEVICE_ID = getDeviceId()
+
         // Tab switching
         function switchTab(tabName) {
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
@@ -420,8 +451,6 @@
 
         // Handle Registration
         async function handleRegister(event) {
-            const data = await response.json();
-            console.log('Full Response Data:', data);
             event.preventDefault();
             
             const username = document.getElementById('register-username').value;
@@ -439,12 +468,12 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'x-device-id': DEVICE_ID
                     },
                     body: JSON.stringify({ username, email, password }),
                 });
 
                 const data = await response.json();
-                console.log('Register response:', data)
 
                 if (!response.ok) {
                     throw new Error(data.message || 'Registration failed');
@@ -454,10 +483,15 @@
                 successEl.textContent = 'Account created successfully! Logging you in...';
                 successEl.style.display = 'block';
 
-                // Store token and user
-                token = data.data?.access_token;
-                console.log('Token after register:', token);
-                currentUser = data.user?.username || data.username || username;
+                // Store token and user - handle nested response
+                token = data.data?.access_token || data.access_token;
+                currentUser = data.data?.user?.username || data.user?.username || data.username || username;
+
+                if(token) {
+                    localStorage.setItem('chat_token', token)
+                    localStorage.setItem('chat_username', currentUser)
+                }
+                console.log('Token:', token, 'User:', currentUser); // Debug
 
                 // Wait a moment then show chat
                 setTimeout(() => {
@@ -485,19 +519,26 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
+                        'x-device-id' : DEVICE_ID
                     },
                     body: JSON.stringify({ username, password }),
                 });
 
                 const data = await response.json();
-                console.log('Full Response Data:', data);
 
                 if (!response.ok) {
                     throw new Error(data.message || 'Login failed');
                 }
 
-                token = data.data?.access_token;
-                currentUser = data.data?.user.username
+                // Store token and user - handle nested response
+                token = data.data?.access_token || data.access_token;
+                currentUser = data.data?.user?.username || data.user?.username || data.username || username;
+
+                if(token){
+                    localStorage.setItem('chat_token', token)
+                    localStorage.setItem('chat_username', currentUser)
+                }
+                console.log('Token:', token, 'User:', currentUser); // Debug
 
                 showChat();
 
@@ -509,6 +550,11 @@
 
         // Show chat interface
         function showChat() {
+            if (!token) {
+                alert('Authentication failed - no token received');
+                return;
+            }
+
             document.getElementById('auth-container').style.display = 'none';
             document.getElementById('chat-container').style.display = 'block';
             document.getElementById('current-user').textContent = currentUser;
@@ -523,6 +569,9 @@
             
             token = null;
             currentUser = null;
+
+            localStorage.removeItem('chat_token');
+            localStorage.removeItem('chat_username')
             
             document.getElementById('auth-container').style.display = 'block';
             document.getElementById('chat-container').style.display = 'none';
@@ -535,11 +584,8 @@
 
         // Connect to WebSocket
         function connectWebSocket() {
-            console.log('Connecting with token:', token);
-            if (!token) {
-                console.error('No token available!');
-                return;
-            }
+            console.log('Connecting with token:', token ? 'Yes' : 'No');
+
             socket = io(API_URL, {
                 auth: {
                     token: `Bearer ${token}`
@@ -560,13 +606,25 @@
             });
 
             socket.on('previousMessages', (messages) => {
+                console.log('Received previous messages:', messages);
                 messages.forEach(msg => {
-                    displayMessage(msg.user.username, msg.content, new Date(msg.createdAt));
+                    displayMessage(
+                        msg.user.username, 
+                        msg.content, 
+                        new Date(msg.createdAt),
+                        msg.user.username === currentUser // Check if it's your message
+                    );
                 });
             });
 
             socket.on('newMessage', (message) => {
-                displayMessage(message.user.username, message.content, new Date(message.createdAt));
+                console.log('Received new message:', message);
+                displayMessage(
+                    message.user.username, 
+                    message.content, 
+                    new Date(message.createdAt),
+                    message.user.username === currentUser // Check if it's your message
+                );
             });
 
             socket.on('userJoined', (data) => {
@@ -588,6 +646,23 @@
                     document.getElementById('typing-indicator').textContent = '';
                 }
             });
+
+            socket.on('connect_error', (err)=> {
+                if(err.message === 'Unauthorized'){
+                    localStorage.removeItem('chat_token')
+                    localStorage.removeItem('chat_username')
+                    handleLogin(event)
+                    alert("session expired. please login again.")
+                }
+            })
+
+            socket.on('exception', (error)=> {
+                if (error === 'Whoah dude, slow down!' || error.message === 'Whoah dude, slow down!'){
+                    displaySystemMessage('⚠️ Error: You are sending messages too fast. Please wait a moment.')
+                }else {
+                    console.error('Socket Exception', error)
+                }
+            })
         }
 
         // Send message
@@ -604,31 +679,34 @@
             }
         }
 
-        // Display message
-        function displayMessage(username, content, timestamp) {
+        // Display message with proper styling
+        function displayMessage(username, content, timestamp, isOwnMessage) {
             const messagesDiv = document.getElementById('messages');
             
-            // 1. Create a wrapper to control the flex alignment (left/right)
+            // Create wrapper
             const wrapper = document.createElement('div');
-            wrapper.className = 'message-wrapper';
-
-            // 2. Create the message bubble
-            const messageEl = document.createElement('div');
+            wrapper.className = `message-wrapper ${isOwnMessage ? 'own' : 'other'}`;
             
-            // 3. Determine if the message is from you or someone else
-            const isSentByMe = username === currentUser;
-            messageEl.className = `message ${isSentByMe ? 'sent' : 'received'}`;
-
-            // 4. Set the inner HTML structure
-            messageEl.innerHTML = `
-                <strong>${isSentByMe ? 'You' : username}</strong>
-                <div>${content}</div>
-                <small>${timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+            // Create message bubble
+            const messageEl = document.createElement('div');
+            messageEl.className = 'message';
+            
+            // Only show username for other people's messages
+            let messageHTML = '';
+            if (!isOwnMessage) {
+                messageHTML += `<div class="message-header">${username}</div>`;
+            }
+            
+            messageHTML += `
+                <div class="message-content">${content}</div>
+                <div class="message-time">${timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
             `;
-
-            // 5. Append and scroll
+            
+            messageEl.innerHTML = messageHTML;
             wrapper.appendChild(messageEl);
             messagesDiv.appendChild(wrapper);
+            
+            // Auto-scroll to bottom
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
@@ -636,7 +714,7 @@
         function displaySystemMessage(text) {
             const messagesDiv = document.getElementById('messages');
             const messageEl = document.createElement('div');
-            messageEl.className = 'message system-message';
+            messageEl.className = 'system-message';
             messageEl.textContent = text;
             messagesDiv.appendChild(messageEl);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -659,7 +737,45 @@
 
         // Typing indicator
         let typingTimeout;
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            const savedToken = localStorage.getItem('chat_token')
+            const savedUser = localStorage.getItem('chat_username')
+            if (savedToken) {
+                try {
+                    // 1. ASK THE BACKEND: "Is this token still good?"
+                    const response = await fetch(`${API_URL}/auth/profile`, {
+                        headers: { 'Authorization': `Bearer ${savedToken}`, 'x-device-id' : DEVICE_ID }
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        console.log("Session validated for:", data.data?.user.username);
+                        
+                        // 2. TOKEN IS GOOD -> Setup App
+                        token = savedToken;
+                        currentUser = data.data?.user.username;
+                        showChat(); 
+                    } else {
+                        // 3. TOKEN EXPIRED -> Clean up
+                        throw new Error('Session expired');
+                    }
+                } catch (err) {
+                    console.log("Validation failed:", err.message);
+                    logout(); // Clears storage and shows login form
+                }
+            } else {
+                logout(); // No token found, show login
+            }
+            // if(savedToken && savedUser){
+            //     console.log("Found active sessions for: ", savedUser);
+            //     currentUser = savedUser
+            //     token = savedToken
+
+            //     showChat()
+            // } else{
+            //     document.getElementById('auth-container').style.display = 'block';
+            //     document.getElementById('chat-container').style.display = 'none';
+            // }
             const messageInput = document.getElementById('message-input');
             if (messageInput) {
                 messageInput.addEventListener('input', () => {

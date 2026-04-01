@@ -2,18 +2,17 @@ import { ConflictException, Injectable, NotFoundException } from '@nestjs/common
 import { InjectRepository } from '@nestjs/typeorm';
 import { Room } from './entity/room.entity';
 import { Repository } from 'typeorm';
-import { User } from 'src/users/entities/user.entity';
 
 @Injectable()
 export class RoomsService {
     constructor(@InjectRepository(Room) private readonly roomRepo: Repository<Room>){}
 
-    async makeRoom(name: string, user:User): Promise<Room>{
+    async makeRoom(name: string, user): Promise<Room>{
         const roomExists = await this.roomRepo.findOne({where: {name: name}})
         if(roomExists) throw new ConflictException('Room already exists');
         const room = this.roomRepo.create({
             name: name,
-            userId: user.id
+            user: user.id
         })
         return await this.roomRepo.save(room)
     }

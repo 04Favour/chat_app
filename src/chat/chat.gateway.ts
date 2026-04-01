@@ -1,22 +1,29 @@
-import { Inject, UseGuards } from '@nestjs/common';
+import { Inject, OnModuleInit, UseGuards } from '@nestjs/common';
 import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import Redis from 'ioredis';
 import { Server, Socket } from 'socket.io';
 import { CreateMessageDto } from 'src/auth/dto/create-message.dto';
 import { WsJwtGuard } from 'src/common/guards/ws-jwt.guard';
+import { WsThrottlerGuard } from 'src/common/guards/ws-throttler.guard';
 import { MessageService } from 'src/messages/message.services';
 import { RoomsService } from 'src/rooms/rooms.service';
 
 
 @WebSocketGateway({
   cors: {
-    origin: '*',
+    origin: ['http://localhost:5500', 'http://127.0.0.1:5500'],
   }
 })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, OnModuleInit {
+  async onModuleInit() {
+    const keys = await this.redis.keys('presence:*');
+    if (keys.length > 0){
+      await this.redis.del(...keys)
+      console.log(`🧹 Redis presence cleared: ${keys.length} room reset.`)
+    }
+  }
   @WebSocketServer()
   server: Server
-  private activeUsers = new Map<string, string>()
 
   constructor(private messageService: MessageService, @Inject('REDIS_CLIENT') private readonly redis:Redis, private roomService: RoomsService){}
 
@@ -24,17 +31,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`client connected: ${client.id}`)
   }
   async handleDisconnect(client: Socket) {
-    const username = client.data.user?.username
+    const user = client.data.user
     const roomId = client.data.currentRoom || 'general'
 
-    await this.redis.srem(`presence: ${roomId}`, username)
-    const activeUsers = await this.redis.smembers(`presence: ${roomId}`)
-
-    this.server.to(roomId).emit('userLeft', {
-      username,
-      activeUsers
-    })
-    console.log(`Client disconnected: ${client.id}`)
+    if(user && user.username && roomId){
+      await this.redis.srem(`presence:${roomId}`, user.username)
+      const activeUsers = await this.redis.smembers(`presence:${roomId}`)
+  
+      this.server.to(roomId).emit('userLeft', {
+        username: user.username,
+        activeUsers
+      })
+      console.log(`Client disconnected: ${client.id}`)
+    }
   }
 
   @UseGuards(WsJwtGuard)
@@ -55,15 +64,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     const currentRoom = client.data.currentRoom
     if(currentRoom){
-      client.leave(currentRoom),
-      await this.redis.srem(`presence: ${currentRoom}`, user.username)
+      client.leave(currentRoom)
+      await this.redis.srem(`presence:${currentRoom}`, user.username)
     }
 
     client.join(newRoom)
     client.data.currentRoom = newRoom
-    await this.redis.sadd(`presence: ${newRoom}`, user.username)
+    const limit =50
+    await this.redis.sadd(`presence:${newRoom}`, user.username)
 
-    const [recentMessages, activeUsers] = await Promise.all([this.messageService.findByRoom(newRoom,50), this.redis.smembers(`presence: ${newRoom}`)])
+    const [recentMessages, activeUsers] = await Promise.all([this.messageService.findByRoom(newRoom, limit), this.redis.smembers(`presence:${newRoom}`)])
 
     client.emit('previousMessages', recentMessages.reverse())
 
@@ -76,7 +86,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return {room: newRoom};
   }
 
-  @UseGuards(WsJwtGuard)
+  @UseGuards(WsJwtGuard, WsThrottlerGuard)
   @SubscribeMessage('sendMessage')
   async handleMessage(@ConnectedSocket() client: Socket, @MessageBody() createMessageDto: CreateMessageDto){
     const user = client.data.user
@@ -99,7 +109,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @UseGuards(WsJwtGuard)
   @SubscribeMessage('typing')
-  handleTyping(@ConnectedSocket() client: Socket, @MessageBody() data: {roomId: string, isTyping: true}){
+  handleTyping(@ConnectedSocket() client: Socket, @MessageBody() data: {roomId: string, isTyping: boolean}){
     const user = client.data.user
     const roomId = data.roomId || 'general'
 

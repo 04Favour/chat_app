@@ -37,27 +37,34 @@ import { RoomsModule } from './rooms/rooms.module';
       useFactory: (config: ConfigService) => ({
         throttlers: [
           {
+            name: 'http_limit',
             ttl: seconds(60),
             limit: 4,
             blockDuration: minutes(2)
           },
+          {
+            name: 'chat_limit',
+            ttl: seconds(60),
+            limit: 20
+          }
         ],
         errorMessage: 'Whoah Dude, Slow Down!',
         // Use Redis storage to track hits across instances
         storage: new ThrottlerStorageRedisService(
-          new Redis({
-            host: config.get('REDIS_HOST'),
-            port: config.get('REDIS_PORT'),
-          })
+          // new Redis({
+          //   host: config.get('REDIS_HOST'),
+          //   port: config.get('REDIS_PORT'),
+          // })
         ),
         getTracker: (req) => {
-            if (req.user?.id) return `user_${req.user.id}`;
+            if (req.user?.username) return `user_${req.user?.username}`;
             if (req.headers['x-device-id']) return `device_${req.headers['x-device-id']}`;
             return `ip_${req.ip}`; 
         },
         generateKey: (context, trackerString, throttlerName) => {
-          return `throttler:${trackerString}`;
-        }
+          const suffix = context.getHandler().name
+          return `throttler:${suffix}:${trackerString}`;
+        },
       }),
     }), 
     UsersModule, 
