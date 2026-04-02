@@ -15,6 +15,8 @@ import { MessageModule } from './messages/message.module';
 import { Redis } from 'ioredis';
 import { RedisModule } from './redis/redis.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-store';
 
 @Module({
   imports: [
@@ -66,7 +68,17 @@ import { RoomsModule } from './rooms/rooms.module';
           return `throttler:${suffix}:${trackerString}`;
         },
       }),
-    }), 
+    }),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      inject: [ConfigService],
+      useFactory: async (config: ConfigService) => ({
+        store: await redisStore({
+          url: `redis://${config.get('REDIS_HOST')}:${config.get('REDIS_PORT')}`,
+          ttl: minutes(10)
+        })
+      })
+    }),
     UsersModule, 
     AuthModule, 
     MessageModule, RedisModule, RoomsModule, ChatModule, 

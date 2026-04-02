@@ -8,4 +8,8 @@ export class CreateMessageDto {
     @IsString()
     @IsOptional()
     roomId?: string
+
+    @IsString()
+    @IsOptional()
+    recipientId?: string
 }

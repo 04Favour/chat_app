@@ -22,7 +22,7 @@ export class WsThrottlerGuard extends ThrottlerGuard {
             throttler.name!
         )
         if(totalHits > limit) {
-            throw new WsException(`Whoah dude, slow down! (${throttler.name} limit reached)`)
+            throw new WsException(`Whoah dude, slow down!`)
         }
         return true
     }

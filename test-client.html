@@ -663,6 +663,23 @@
                     console.error('Socket Exception', error)
                 }
             })
+
+            socket.on('privateChatHistory', (messages)=>{
+                messages.forEach(msg => {
+                    displayMessage(
+                        msg.user.username, 
+                        msg.content, 
+                        new Date(msg.createdAt),
+                        msg.user.username === currentUser // Check if it's your message
+                    );
+                });
+            })
+        }
+
+        function openPrivateChat(targetUserId) {
+            socket.emit('joinPrivateChat', {recipientId: targetUserId}, (response)=> {
+                console.log('Joined private room', response.roomId)
+            })
         }
 
         // Send message

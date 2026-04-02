@@ -90,7 +90,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
   @SubscribeMessage('sendMessage')
   async handleMessage(@ConnectedSocket() client: Socket, @MessageBody() createMessageDto: CreateMessageDto){
     const user = client.data.user
-    const roomId = createMessageDto.roomId || 'general'
+    let roomId = createMessageDto.roomId || 'general'
+    const {recipientId, content} = createMessageDto
+
+    if(recipientId){
+      roomId = [user.sub, recipientId].sort().join('--')
+
+      const savedMessage = await this.messageService.createPrivateMessage(user.sub, recipientId, content)
+      this.server.to(roomId).emit('newMessage', {
+        id: savedMessage.id,
+        content: savedMessage.content,
+        user: {
+          id: user.id,
+          username: user.username
+        },
+        createdAt: savedMessage.createdAt
+      })
+    }
 
     const message = await this.messageService.create(createMessageDto, user)
 
@@ -117,5 +133,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
       username: user.username,
       isTyping: data.isTyping
     })
+  }
+
+  @SubscribeMessage('joinPrivateChat')
+  async handlePrivateChat(@ConnectedSocket() client: Socket, @MessageBody() data: {recipientId: string}){
+    const senderId = client.data.user.sub
+    const recipientId = data.recipientId
+
+    const roomId = [senderId, recipientId].sort().join('--')
+
+    client.join(roomId)
+    console.log(`[Socket] User ${senderId} joined private room: ${roomId}`)
+    const history = await this.messageService.getHistory(roomId)
+
+    client.emit('privateChatHistory', history)
+    return {roomId}
   }
 }
