@@ -36,7 +36,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
     if(user && user.username && roomId){
       await this.redis.srem(`presence:${roomId}`, user.username)
-      const activeUsers = await this.redis.smembers(`presence:${roomId}`)
+      await this.redis.hdel('user_id_map', user.username)
+
+      const usernames = await this.redis.smembers(`presence:${roomId}`)
+      const ids = await Promise.all(usernames.map(username=>this.redis.hget('user_id_map', username)))
+      const activeUsers = usernames.map((username,i)=> ({id:ids[i], username}))
   
       this.server.to(roomId).emit('userLeft', {
         username: user.username,
@@ -70,10 +74,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
 
     client.join(newRoom)
     client.data.currentRoom = newRoom
-    const limit =50
-    await this.redis.sadd(`presence:${newRoom}`, user.username)
 
-    const [recentMessages, activeUsers] = await Promise.all([this.messageService.findByRoom(newRoom, limit), this.redis.smembers(`presence:${newRoom}`)])
+    await this.redis.sadd(`presence:${newRoom}`, user.username)
+    await this.redis.hset('user_id_map', user.username, user.id)
+    const usernames = await this.redis.smembers(`presence:${newRoom}`)
+    const ids = await Promise.all(usernames.map(username=> this.redis.hget('user_id_map', username)))
+    const activeUsers = usernames.map((username, i)=> ({id: ids[i], username}))
+    const limit = 50
+    const recentMessages = await this.messageService.findByRoom(newRoom, limit)
 
     client.emit('previousMessages', recentMessages.reverse())
 
@@ -94,18 +102,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     const {recipientId, content} = createMessageDto
 
     if(recipientId){
-      roomId = [user.sub, recipientId].sort().join('--')
-
-      const savedMessage = await this.messageService.createPrivateMessage(user.sub, recipientId, content)
+      roomId = [user.id, recipientId].sort().join('--')
+      // const recipientSockets = await this.server.fetchSockets()
+      // console.log('All connected socket users:', recipientSockets.map(s=>s.data.user?.id))
+      // console.log('Looking for recipientId:', recipientId)
+      // const recipientSocket = recipientSockets.find(s => s.data.user?.id === recipientId)
+      // console.log('Recipient socket found:', !!recipientSocket)
+      // if (recipientSocket) {
+      //     recipientSocket.join(roomId)
+      // }
+      const savedMessage = await this.messageService.createPrivateMessage(user, recipientId, content)
       this.server.to(roomId).emit('newMessage', {
         id: savedMessage.id,
         content: savedMessage.content,
+        roomId,
         user: {
           id: user.id,
           username: user.username
         },
         createdAt: savedMessage.createdAt
       })
+      return {success: true}
     }
 
     const message = await this.messageService.create(createMessageDto, user)
@@ -135,9 +152,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     })
   }
 
+  @UseGuards(WsJwtGuard, WsThrottlerGuard)
   @SubscribeMessage('joinPrivateChat')
   async handlePrivateChat(@ConnectedSocket() client: Socket, @MessageBody() data: {recipientId: string}){
-    const senderId = client.data.user.sub
+    const senderId = client.data.user.id
     const recipientId = data.recipientId
 
     const roomId = [senderId, recipientId].sort().join('--')
@@ -146,7 +164,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect, On
     console.log(`[Socket] User ${senderId} joined private room: ${roomId}`)
     const history = await this.messageService.getHistory(roomId)
 
-    client.emit('privateChatHistory', history)
+    client.emit('privateChatHistory', {
+      roomId,
+      history
+    })
     return {roomId}
+  }
+
+  @UseGuards(WsJwtGuard, WsThrottlerGuard)
+  @SubscribeMessage('leavePrivateRoom')
+  handleLeavePrivateRoom(@ConnectedSocket() client: Socket, @MessageBody() data: {roomId: string}){
+    client.leave(data.roomId)
+    console.log(`[Socket] User ${client.data.user.username} left Private room: ${data.roomId}`)
   }
 }

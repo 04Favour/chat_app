@@ -44,19 +44,24 @@ export class MessageService {
         })
     }
 
-    async createPrivateMessage(senderId: string, recipientId: string, content: string){
-        const roomId = getPrivateRoomId(senderId, recipientId)
+    async createPrivateMessage(user:User, recipientId: string, content: string){
+        const roomId = getPrivateRoomId(user.id, recipientId)
         const newMessage = this.messageRepository.create({
             content,
             roomId,
-            userId: senderId
+            user: user,
+            userId: user.id,
         })
         const savedMessage = await this.messageRepository.save(newMessage)
 
+        const messageWithUser = await this.messageRepository.findOne({
+            where: {id: savedMessage.id},
+            relations: ['user']
+        })
         const cacheKey = `chat_history:${roomId}`
         const cachedData = await this.cacheManager.get<any[]>(cacheKey)
         let history:any[] = cachedData || []
-        history.push(savedMessage)
+        history.push(messageWithUser)
         if(history.length > 50) history.shift();
         await this.cacheManager.set(cacheKey, history, 3600000)
         return savedMessage
@@ -74,6 +79,7 @@ export class MessageService {
         const dbHistory = await this.messageRepository.find({
             where: {roomId},
             order: {createdAt: 'ASC'},
+            relations: ['user'],
             take: 50
         })
         await this.cacheManager.set(cacheKey, dbHistory, 3600000);
