@@ -1,98 +1,224 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 💬 NestJS Real-Time Chat Application
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A full-stack real-time chat application built with **NestJS**, **Socket.IO**, **PostgreSQL**, **Redis**, and a vanilla HTML/CSS/JS frontend. Supports public group chat and private one-on-one messaging with JWT authentication.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+---
 
-## Description
+## ✨ Features
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- 🔐 JWT-based authentication (register, login, session persistence)
+- 💬 Public general chat room
+- 🔒 Private one-on-one messaging between users
+- 👥 Live online users sidebar with real-time presence tracking
+- ⌨️ Typing indicators
+- 📜 Message history (last 50 messages, Redis-cached)
+- 🚫 Rate limiting to prevent message spam
+- 🔄 Auto session restore on page refresh
+- 📱 Responsive layout
 
-## Project setup
+---
 
-```bash
-$ yarn install
+## 🛠 Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Backend Framework | NestJS |
+| WebSockets | Socket.IO + `@nestjs/websockets` |
+| Database | PostgreSQL + TypeORM |
+| Cache / Presence | Redis (ioredis) |
+| Authentication | JWT (`@nestjs/jwt`, Passport) |
+| Frontend | Vanilla HTML, CSS, JavaScript |
+
+---
+
+## 📁 Project Structure
+
+```
+src/
+├── auth/
+│   ├── dto/
+│   │   └── create-message.dto.ts
+│   ├── strategies/
+│   │   └── jwt.strategy.ts
+│   └── auth.module.ts
+├── chat/
+│   └── chat.gateway.ts          # WebSocket gateway (main real-time logic)
+├── common/
+│   └── guards/
+│       ├── ws-jwt.guard.ts      # WebSocket JWT auth guard
+│       └── ws-throttler.guard.ts
+├── messages/
+│   └── message.services.ts      # Message CRUD + private message logic
+├── rooms/
+│   └── rooms.service.ts
+├── users/
+│   └── users.service.ts
+└── main.ts
+
+test-client.html                  # Frontend single-file client
 ```
 
-## Compile and run the project
+---
+
+## ⚙️ Prerequisites
+
+- Node.js v18+
+- PostgreSQL
+- Redis
+
+---
+
+## 🚀 Getting Started
+
+### 1. Clone the repository
 
 ```bash
-# development
-$ yarn run start
-
-# watch mode
-$ yarn run start:dev
-
-# production mode
-$ yarn run start:prod
+git clone https://github.com/04favour/chat_app.git
+cd your-repo-name
 ```
 
-## Run tests
+### 2. Install dependencies
 
 ```bash
-# unit tests
-$ yarn run test
-
-# e2e tests
-$ yarn run test:e2e
-
-# test coverage
-$ yarn run test:cov
+npm install
 ```
 
-## Deployment
+### 3. Configure environment variables
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Create a `.env` file in the root directory:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_USERNAME=postgres
+DB_PASSWORD=your_password
+DB_NAME=chat_db
+
+# JWT
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRES_IN=7d
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+```
+
+### 4. Run the application
 
 ```bash
-$ yarn install -g @nestjs/mau
-$ mau deploy
+# Development
+npm run start:dev
+
+# Production
+npm run build
+npm run start:prod
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 5. Open the frontend
 
-## Resources
+Serve `test-client.html` via any static file server, for example with the VS Code Live Server extension at:
 
-Check out a few resources that may come in handy when working with NestJS:
+```
+http://127.0.0.1:5500/test-client.html
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Make sure the `API_URL` in the HTML file points to your running backend:
 
-## Support
+```javascript
+const API_URL = 'http://localhost:3009';
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+---
 
-## Stay in touch
+## 🔌 WebSocket Events
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+### Client → Server
 
-## License
+| Event | Payload | Description |
+|---|---|---|
+| `joinRoom` | `{ roomId: string }` | Join a public chat room |
+| `joinPrivateChat` | `{ recipientId: string }` | Open a private chat with a user |
+| `sendMessage` | `{ content, roomId?, recipientId? }` | Send a public or private message |
+| `typing` | `{ roomId: string, isTyping: boolean }` | Broadcast typing status |
+| `createRoom` | `{ roomName: string }` | Create and join a new room |
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+### Server → Client
+
+| Event | Payload | Description |
+|---|---|---|
+| `previousMessages` | `Message[]` | Recent message history on room join |
+| `newMessage` | `Message` | A new incoming message |
+| `privateChatHistory` | `{ roomId, history }` | Private message history |
+| `userJoined` | `{ username, activeUsers }` | User joined the room |
+| `userLeft` | `{ username, activeUsers }` | User left the room |
+| `userTyping` | `{ username, isTyping }` | Typing indicator |
+
+---
+
+## 🗄 Database Schema
+
+### Users
+| Column | Type |
+|---|---|
+| id | UUID (PK) |
+| username | varchar (unique) |
+| email | varchar (unique) |
+| password | varchar (hashed) |
+| isActive | boolean |
+| createdAt | timestamp |
+
+### Messages
+| Column | Type |
+|---|---|
+| id | UUID (PK) |
+| content | text |
+| roomId | varchar |
+| userId | UUID (FK → users) |
+| createdAt | timestamp |
+
+---
+
+## 🔒 Authentication Flow
+
+1. Client registers or logs in via REST (`POST /auth/register` or `POST /auth/login`)
+2. Server returns a JWT access token
+3. Token is stored in `localStorage` and validated on page load via `GET /auth/profile`
+4. Token is passed to Socket.IO via `auth: { token }` and `extraHeaders`
+5. `WsJwtGuard` verifies the token and attaches the user to `client.data.user` on every guarded event
+
+---
+
+## 🏠 Private Messaging Architecture
+
+Private room IDs are deterministically generated by sorting both user UUIDs and joining them:
+
+```typescript
+const roomId = [user.id, recipientId].sort().join('--')
+// e.g. "0520ea0d-5706-4c3d-9430-f64774ddccd0--8248b9cc-7b56-4bfe-8d14-8b8ab493be62"
+```
+
+This ensures both users always resolve to the same room regardless of who initiates. When a private message is sent, the gateway uses `fetchSockets()` to find the recipient's active socket and joins them to the room in real time, so they receive the message even if they haven't opened the private chat yet.
+
+---
+
+## 📦 Key Scripts
+
+```bash
+npm run start:dev     # Start with hot reload
+npm run build         # Compile TypeScript
+npm run start:prod    # Run compiled build
+npm run test          # Run unit tests
+```
+
+---
+
+## 🤝 Contributing
+
+Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+
+---
+
+## 📄 License
+
+[MIT](LICENSE)
